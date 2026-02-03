@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const envSecretSchema = z.object({
   PORT: z.coerce.number(),
+  POSTGRES_DATABASE_URL: z.string().nonempty(),
 });
 
 type EnvSecrets = z.infer<typeof envSecretSchema>;
