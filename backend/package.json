@@ -1,0 +1,22 @@
+{
+  "name": "real-time-sport-engine-backend",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --watch server.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/express": "^5.0.6"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "ws": "^8.19.0",
+    "zod": "^4.3.6"
+  }
+}
