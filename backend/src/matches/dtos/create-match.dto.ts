@@ -6,17 +6,13 @@ export const MATCH_STATUS = {
   FINISHED: 'finished',
 } as const;
 
-const isoDateString = z.string().refine((val) => !isNaN(Date.parse(val)), {
-  error: 'Invalid ISO date string',
-});
-
 export const createMatchSchema = z
   .object({
     sport: z.string().min(1),
     homeTeam: z.string().min(3),
     awayTeam: z.string().min(3),
-    startTime: isoDateString,
-    endTime: isoDateString,
+    startTime: z.iso.datetime(),
+    endTime: z.iso.datetime(),
     homeScore: z.coerce.number().int().nonnegative().default(0),
     awayScore: z.coerce.number().int().nonnegative().default(0),
   })

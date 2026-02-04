@@ -12,6 +12,7 @@
     "@types/bun": "latest",
     "@types/express": "^5.0.6",
     "@types/pg": "^8.16.0",
+    "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.8",
     "tsx": "^4.21.0"
   },

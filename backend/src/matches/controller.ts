@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
-import { treeifyError } from 'zod';
 import { paginationFilterSchema } from '../common/dtos/pagination-filter.dto';
 import { httpStatusCodes } from '../common/http/status-codes';
+import type { WebSocketFeatures } from '../common/types/app';
 import { createMatchSchema } from './dtos/create-match.dto';
 import type { MatchesService } from './service';
 import { getMatchStatus } from './utils/match-status.util';
@@ -11,7 +11,8 @@ export interface MatchesController {
   findAll(req: Request, res: Response, next: NextFunction): Promise<void>;
 }
 export function createMatchesController(
-  service: MatchesService
+  service: MatchesService,
+  ws: WebSocketFeatures
 ): MatchesController {
   return {
     async create(req, res, next) {
@@ -20,7 +21,7 @@ export function createMatchesController(
       if (!parsed.success) {
         res.status(400).json({
           message: 'invalid payload.',
-          error: treeifyError(parsed.error).properties,
+          error: parsed.error.issues,
         });
         return;
       }
@@ -38,14 +39,15 @@ export function createMatchesController(
           });
           return;
         }
-        const event = await service.create({
+        const match = await service.create({
           ...parsed.data,
           startTime: parsedStartTime,
           endTime: parsedEndTime,
           status: matchStatus,
         });
+        ws.broadcastMatchCreated(match);
         res.status(httpStatusCodes.CREATED).json({
-          data: event,
+          data: match,
         });
       } catch (error) {
         next(error);
@@ -59,10 +61,11 @@ export function createMatchesController(
         if (parsedFilterResult.error) {
           res.status(400).json({
             message: 'invalid payload.',
-            error: treeifyError(parsedFilterResult.error).properties,
+            error: parsedFilterResult.error.issues,
           });
           return;
         }
+
         const data = await service.find(parsedFilterResult.data);
         res.json({ data });
       } catch (error) {

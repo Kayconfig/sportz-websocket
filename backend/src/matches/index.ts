@@ -7,7 +7,7 @@ import { createMatchesService } from './service';
 export function initializeMatchesModule(app: App) {
   const repository = createMatchesRespository(app.db);
   const service = createMatchesService(repository);
-  const controller = createMatchesController(service);
+  const controller = createMatchesController(service, app.ws);
   const router = createMatchesRouter(controller);
 
   app.express.use(router);
