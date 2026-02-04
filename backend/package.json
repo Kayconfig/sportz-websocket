@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun --watch server.ts",
+    "dev": "bun --watch ./src/server.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
@@ -23,7 +23,10 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
     "express": "^5.2.1",
+    "helmet": "^8.1.0",
     "pg": "^8.18.0",
+    "pino": "^10.3.0",
+    "pino-http": "^11.0.0",
     "ws": "^8.19.0",
     "zod": "^4.3.6"
   }
