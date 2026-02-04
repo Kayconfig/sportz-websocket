@@ -1,4 +1,5 @@
 import express, {
+  type Express,
   type NextFunction,
   type Request,
   type Response,
@@ -8,7 +9,7 @@ import pino from 'pino';
 import pinoHttpLoger from 'pino-http';
 import { ErrQueryTimeout } from './common/errors/err-query-timeout';
 import { httpStatusCodes } from './common/http/status-codes';
-import type { App } from './common/types/app';
+import type { App, WebSocketFeatures } from './common/types/app';
 import { secrets } from './config/env';
 import { connectDB } from './db/drizzle';
 import { initializeMatchesModule } from './matches';
@@ -53,11 +54,25 @@ function registerDefaultErrHandler(app: App) {
   );
 }
 
+function createWebSocketFeature(expressApp: Express): WebSocketFeatures {
+  return {
+    broadcastMatchCreated(match) {
+      const targetFunction = expressApp.locals.broadcastMatchCreated;
+      if (!targetFunction) {
+        // websocket not initialized yet
+        return;
+      }
+      targetFunction(match);
+    },
+  };
+}
+
 export function createApp(): App {
   const expressApp = express();
   const logger = pino();
   const db = connectDB(secrets.getOrThrow('POSTGRES_DATABASE_URL'), logger);
-  const app: App = { express: expressApp, logger, db };
+  const webSocketFeature = createWebSocketFeature(expressApp);
+  const app: App = { express: expressApp, logger, db, ws: webSocketFeature };
   registerMiddlewares(app);
 
   initializeMatchesModule(app);
