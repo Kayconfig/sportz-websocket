@@ -4,9 +4,10 @@ import { createApp } from './app';
 import { secrets } from './config/env';
 
 secrets.validate();
+
 const app = createApp();
-const server = createServer(app);
+const server = createServer(app.express);
 const port = secrets.getOrThrow('PORT');
 server.listen(port, () => {
-  console.log(`server running on port ${port}`);
+  app.logger.info(`server running on port ${port}`);
 });

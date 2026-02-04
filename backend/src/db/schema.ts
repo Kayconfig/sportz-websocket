@@ -19,7 +19,7 @@ export const matches = pgTable('matches', {
   sport: text('sport').notNull(),
   homeTeam: text('home_team').notNull(),
   awayTeam: text('away_team').notNull(),
-  status: matchStatusEnum('status').notNull().default('scheduled'),
+  status: matchStatusEnum('status').default('scheduled'),
   startTime: timestamp('start_time').notNull(),
   endTime: timestamp('endtime').notNull(),
   homeScore: integer('home_score').default(0),
@@ -43,3 +43,9 @@ export const commentary = pgTable('commentary', {
   tags: text('tags').array(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+export type Match = typeof matches.$inferSelect;
+export type NewMatch = typeof matches.$inferInsert;
+
+export type Commentary = typeof commentary.$inferSelect;
+export type NewCommentary = typeof commentary.$inferInsert;
