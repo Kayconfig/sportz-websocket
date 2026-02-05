@@ -1,4 +1,4 @@
 export type Logger = {
   info: (input: string) => void;
-  error: (err: Error) => void;
+  error: (err: unknown) => void;
 };

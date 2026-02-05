@@ -1,5 +1,7 @@
 import { Server } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
+import { wsArcJet } from '../../arcjet';
+import type { Logger } from '../common/types/logger';
 import type { Match } from '../db/schema';
 import { PAYLOAD_TYPES } from './payload-types';
 
@@ -15,21 +17,40 @@ function broadcast(wss: WebSocketServer, payload: Record<string, any>) {
   }
 }
 
-export function attachWebSocketServer(server: Server) {
+export function attachWebSocketServer(server: Server, logger: Logger) {
   const wss = new WebSocketServer({
     server,
     path: '/ws',
     maxPayload: 1024 * 1024, // one MB
   });
 
-  wss.on('connection', (socket: WebSocket & { isAlive?: boolean }) => {
-    socket.isAlive = true;
-    socket.on('pong', function hearbeat() {
-      (this as any).alive = true;
-    });
-    sendJson(socket, { type: PAYLOAD_TYPES.WELCOME });
-    socket.on('error', console.error);
-  });
+  wss.on(
+    'connection',
+    async (socket: WebSocket & { isAlive?: boolean }, req) => {
+      let code: number;
+      let reason: string;
+      try {
+        const decision = await wsArcJet.protect(req);
+        if (decision.isDenied()) {
+          const isRateLimit = decision.reason.isRateLimit();
+          code = isRateLimit ? 1013 : 1008;
+          reason = isRateLimit ? 'Rate limit exceeded' : 'Access denied';
+          socket.close(code, reason);
+          return;
+        }
+      } catch (error) {
+        logger.error({ msg: 'WS connection error', err: error });
+        socket.close(1011, 'Server security error');
+        return;
+      }
+      socket.isAlive = true;
+      socket.on('pong', function hearbeat() {
+        socket.isAlive = true;
+      });
+      sendJson(socket, { type: PAYLOAD_TYPES.WELCOME });
+      socket.on('error', logger.error);
+    }
+  );
 
   const interval = setInterval(() => {
     wss.clients.forEach((ws: WebSocket & { isAlive?: boolean }) => {
@@ -37,7 +58,7 @@ export function attachWebSocketServer(server: Server) {
       ws.isAlive = false;
       ws.ping();
     });
-  }, 30_000);
+  }, 1_000);
 
   wss.on('close', () => {
     clearInterval(interval);

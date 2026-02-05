@@ -7,6 +7,7 @@ import express, {
 import helmet from 'helmet';
 import pino from 'pino';
 import pinoHttpLoger from 'pino-http';
+import { securityMiddleware } from '../arcjet';
 import { ErrQueryTimeout } from './common/errors/err-query-timeout';
 import { httpStatusCodes } from './common/http/status-codes';
 import type { App, WebSocketFeatures } from './common/types/app';
@@ -19,6 +20,7 @@ function registerMiddlewares(app: App) {
   app.express.use(express.json());
   app.express.use(express.urlencoded({ extended: true }));
   app.express.use(pinoHttpLoger());
+  app.express.use(securityMiddleware(app.logger));
 }
 
 function registerUtilRoutes(app: App) {
@@ -73,8 +75,8 @@ export function createApp(): App {
   const db = connectDB(secrets.getOrThrow('POSTGRES_DATABASE_URL'), logger);
   const webSocketFeature = createWebSocketFeature(expressApp);
   const app: App = { express: expressApp, logger, db, ws: webSocketFeature };
-  registerMiddlewares(app);
 
+  registerMiddlewares(app);
   initializeMatchesModule(app);
   registerUtilRoutes(app);
   registerDefaultErrHandler(app);

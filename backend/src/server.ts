@@ -5,10 +5,9 @@ import { secrets } from './config/env';
 import { attachWebSocketServer } from './ws/server';
 
 secrets.validate();
-
 const app = createApp();
 const server = createServer(app.express);
-const { broadcastMatchCreated } = attachWebSocketServer(server);
+const { broadcastMatchCreated } = attachWebSocketServer(server, app.logger);
 // add to express global object called locals
 app.express.locals.broadcastMatchCreated = broadcastMatchCreated;
 const port = secrets.getOrThrow('PORT');
