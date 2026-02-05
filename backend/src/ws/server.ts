@@ -27,22 +27,6 @@ export function attachWebSocketServer(server: Server, logger: Logger) {
   wss.on(
     'connection',
     async (socket: WebSocket & { isAlive?: boolean }, req) => {
-      let code: number;
-      let reason: string;
-      try {
-        const decision = await wsArcJet.protect(req);
-        if (decision.isDenied()) {
-          const isRateLimit = decision.reason.isRateLimit();
-          code = isRateLimit ? 1013 : 1008;
-          reason = isRateLimit ? 'Rate limit exceeded' : 'Access denied';
-          socket.close(code, reason);
-          return;
-        }
-      } catch (error) {
-        logger.error({ msg: 'WS connection error', err: error });
-        socket.close(1011, 'Server security error');
-        return;
-      }
       socket.isAlive = true;
       socket.on('pong', function hearbeat() {
         socket.isAlive = true;
@@ -51,6 +35,31 @@ export function attachWebSocketServer(server: Server, logger: Logger) {
       socket.on('error', logger.error);
     }
   );
+
+  server.on('upgrade', async (req, socket, head) => {
+    const { pathname } = new URL(req.url!, `http://${req.headers.host}`);
+    if (pathname !== '/ws') {
+      return;
+    }
+
+    try {
+      const decision = await wsArcJet.protect(req);
+      if (decision.isDenied()) {
+        if (decision.reason.isRateLimit()) {
+          socket.write('HTTP/1.1 429 Too Many Requests \r\n\r\n');
+        } else {
+          socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+        }
+        socket.destroy();
+        return;
+      }
+    } catch (error) {
+      logger.error({ msg: 'WS upgrade protection error', err: error });
+      socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+  });
 
   const interval = setInterval(() => {
     wss.clients.forEach((ws: WebSocket & { isAlive?: boolean }) => {
