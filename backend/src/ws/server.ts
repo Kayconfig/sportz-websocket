@@ -22,9 +22,25 @@ export function attachWebSocketServer(server: Server) {
     maxPayload: 1024 * 1024, // one MB
   });
 
-  wss.on('connection', (socket) => {
+  wss.on('connection', (socket: WebSocket & { isAlive?: boolean }) => {
+    socket.isAlive = true;
+    socket.on('pong', function hearbeat() {
+      (this as any).alive = true;
+    });
     sendJson(socket, { type: PAYLOAD_TYPES.WELCOME });
     socket.on('error', console.error);
+  });
+
+  const interval = setInterval(() => {
+    wss.clients.forEach((ws: WebSocket & { isAlive?: boolean }) => {
+      if (ws?.isAlive === false) return ws.terminate();
+      ws.isAlive = false;
+      ws.ping();
+    });
+  }, 30_000);
+
+  wss.on('close', () => {
+    clearInterval(interval);
   });
 
   function broadcastMatchCreated(match: Match) {
