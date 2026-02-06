@@ -84,17 +84,17 @@ function handleMessage(socket: WebSocket, payloadString: string) {
     const matchId = Number(message.matchId);
     const matchIdIsSafeToUse = Number.isSafeInteger(matchId);
 
-    if (message?.type === EVENT_TYPES.SUBSCRIBE && matchIdIsSafeToUse) {
+    if (message?.type === EVENT_TYPES.MATCH_SUBSCRIBE && matchIdIsSafeToUse) {
       subscribeToMatch(matchId, socket);
       addMatchIdToSocketSubscription(matchId, socket);
-      sendJson(socket, { type: EVENT_TYPES.SUBSCRIBED, matchId });
+      sendJson(socket, { type: EVENT_TYPES.MATCH_SUBSCRIBED, matchId });
     } else if (
-      message?.type === EVENT_TYPES.UNSUBSCRIBE &&
+      message?.type === EVENT_TYPES.MATCH_UNSUBSCRIBE &&
       matchIdIsSafeToUse
     ) {
       unSubscribeFromMatch(matchId, socket);
       removeMatchIdFromSocketSubscription(matchId, socket);
-      sendJson(socket, { type: EVENT_TYPES.UNSUBSCRIBED, matchId });
+      sendJson(socket, { type: EVENT_TYPES.MATCH_UNSUBSCRIBED, matchId });
     }
   } catch (error) {
     if (error instanceof SyntaxError) {
@@ -193,7 +193,7 @@ export function attachWebSocketServer(server: Server, logger: Logger) {
 
   function broadcastCommentary(matchId: number, commentary: Commentary) {
     broadcastToMatchSubscribers(matchId, {
-      type: EVENT_TYPES.COMMENTARY,
+      type: EVENT_TYPES.COMMENTARY_CREATED,
       data: commentary,
     });
   }
