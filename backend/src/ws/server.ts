@@ -2,8 +2,108 @@ import { Server } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { wsArcJet } from '../../arcjet';
 import type { Logger } from '../common/types/logger';
-import type { Match } from '../db/schema';
-import { PAYLOAD_TYPES } from './payload-types';
+import type { Commentary, Match } from '../db/schema';
+import { EVENT_TYPES } from './event-types';
+
+const matchSubscribers = new Map<number, Set<WebSocket>>();
+const subscriptions = new Map<WebSocket, Set<number>>();
+
+function subscribeToMatch(matchId: number, socket: WebSocket) {
+  let subscribers = matchSubscribers.get(matchId);
+  if (!subscribers) {
+    subscribers = new Set<WebSocket>();
+    matchSubscribers.set(matchId, subscribers);
+  }
+  subscribers.add(socket);
+}
+
+function unSubscribeFromMatch(matchId: number, socket: WebSocket) {
+  const subscribers = matchSubscribers.get(matchId);
+  if (!subscribers) return;
+
+  subscribers.delete(socket);
+
+  if (subscribers.size === 0) {
+    matchSubscribers.delete(matchId);
+    return;
+  }
+}
+
+function cleanupSubscriptions(socket: WebSocket) {
+  const socketSubscriptions = subscriptions.get(socket);
+  if (!socketSubscriptions) {
+    return;
+  }
+  for (const matchId of socketSubscriptions) {
+    const subscribers = matchSubscribers.get(matchId);
+    subscribers?.delete(socket);
+  }
+}
+
+function broadcastToMatchSubscribers(
+  matchId: number,
+  payload: Record<string, any>
+) {
+  const subscribers = matchSubscribers.get(matchId);
+  if (!subscribers) return;
+  for (const subscriber of subscribers) {
+    sendJson(subscriber, payload);
+  }
+}
+
+function addMatchIdToSocketSubscription(matchId: number, socket: WebSocket) {
+  let subscribedMatches = subscriptions.get(socket);
+  if (!subscribedMatches) {
+    subscribedMatches = new Set<number>();
+    subscriptions.set(socket, subscribedMatches);
+  }
+  subscribedMatches.add(matchId);
+}
+
+function removeMatchIdFromSocketSubscription(
+  matchId: number,
+  socket: WebSocket
+) {
+  let subscribedMatches = subscriptions.get(socket);
+  if (!subscribedMatches) {
+    return;
+  }
+
+  subscribedMatches.delete(matchId);
+
+  if (subscribedMatches.size < 1) {
+    // remove socket store when not listening to any match
+    subscriptions.delete(socket);
+    return;
+  }
+}
+
+function handleMessage(socket: WebSocket, payloadString: string) {
+  try {
+    const message = JSON.parse(payloadString);
+    const matchId = Number(message.matchId);
+    const matchIdIsSafeToUse = Number.isSafeInteger(matchId);
+
+    if (message?.type === EVENT_TYPES.SUBSCRIBE && matchIdIsSafeToUse) {
+      subscribeToMatch(matchId, socket);
+      addMatchIdToSocketSubscription(matchId, socket);
+      sendJson(socket, { type: EVENT_TYPES.SUBSCRIBED, matchId });
+    } else if (
+      message?.type === EVENT_TYPES.UNSUBSCRIBE &&
+      matchIdIsSafeToUse
+    ) {
+      unSubscribeFromMatch(matchId, socket);
+      removeMatchIdFromSocketSubscription(matchId, socket);
+      sendJson(socket, { type: EVENT_TYPES.UNSUBSCRIBED, matchId });
+    }
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      sendJson(socket, { type: 'error', message: 'invalid JSON' });
+      return;
+    }
+    throw error;
+  }
+}
 
 function sendJson(socket: WebSocket, payload: Record<string, any>) {
   if (socket.readyState !== WebSocket.OPEN) return;
@@ -31,8 +131,22 @@ export function attachWebSocketServer(server: Server, logger: Logger) {
       socket.on('pong', function hearbeat() {
         socket.isAlive = true;
       });
-      sendJson(socket, { type: PAYLOAD_TYPES.WELCOME });
-      socket.on('error', logger.error);
+
+      socket.on('message', (data, isBinary) => {
+        let stringifiedData = data.toString();
+        handleMessage(socket, stringifiedData);
+      });
+
+      socket.on('error', (err) => {
+        logger.error(err);
+        cleanupSubscriptions(socket);
+        socket.terminate();
+      });
+      socket.on('close', () => {
+        cleanupSubscriptions(socket);
+      });
+
+      sendJson(socket, { type: EVENT_TYPES.WELCOME });
     }
   );
 
@@ -74,8 +188,15 @@ export function attachWebSocketServer(server: Server, logger: Logger) {
   });
 
   function broadcastMatchCreated(match: Match) {
-    broadcast(wss, { type: PAYLOAD_TYPES.MATCH_CREATED, data: match });
+    broadcast(wss, { type: EVENT_TYPES.MATCH_CREATED, data: match });
   }
 
-  return { broadcastMatchCreated };
+  function broadcastCommentary(matchId: number, commentary: Commentary) {
+    broadcastToMatchSubscribers(matchId, {
+      type: EVENT_TYPES.COMMENTARY,
+      data: commentary,
+    });
+  }
+
+  return { broadcastMatchCreated, broadcastCommentary };
 }

@@ -1,11 +1,25 @@
 import type { PaginationMetadataDto } from '../dtos/pagination-metadata.dto';
+import { ErrParseStringNumber } from './error/err-parse-string-number';
 
+/**
+ *
+ * @param totalItems
+ * @param limit
+ * @param page
+ * @returns PaginationMetadataDto
+ *
+ * @throws ErrParseStringNumber
+ */
 function generatePaginationMetadata(
-  totalItems: number,
+  totalItems: number | string,
   limit: number,
   page: number
 ): PaginationMetadataDto {
-  if (totalItems < 1) {
+  const parsedTotalItems = Number(totalItems);
+  if (isNaN(parsedTotalItems)) {
+    throw ErrParseStringNumber.create(`${totalItems} is not a valid number`);
+  }
+  if (parsedTotalItems < 1) {
     return {
       firstPage: 0,
       lastPage: 0,
@@ -14,12 +28,13 @@ function generatePaginationMetadata(
       totalItems: 0,
     };
   }
+
   return {
     currentPage: page,
     pageSize: limit,
     firstPage: 1,
-    lastPage: Math.ceil((totalItems + limit - 1) / limit),
-    totalItems,
+    lastPage: Math.ceil((parsedTotalItems + limit - 1) / limit),
+    totalItems: parsedTotalItems,
   };
 }
 

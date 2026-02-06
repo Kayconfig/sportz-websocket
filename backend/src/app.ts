@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import pino from 'pino';
 import pinoHttpLoger from 'pino-http';
 import { securityMiddleware } from '../arcjet';
+import { initializeCommentaryModule } from './commentary';
 import { ErrQueryTimeout } from './common/errors/err-query-timeout';
 import { httpStatusCodes } from './common/http/status-codes';
 import type { App, WebSocketFeatures } from './common/types/app';
@@ -34,7 +35,7 @@ function registerUtilRoutes(app: App) {
   app.express.use('', (req, res) => {
     res
       .status(httpStatusCodes.NOT_FOUND)
-      .json({ message: 'request path does not exist' });
+      .json({ message: 'requested path does not exist' });
   });
 }
 
@@ -66,6 +67,14 @@ function createWebSocketFeature(expressApp: Express): WebSocketFeatures {
       }
       targetFunction(match);
     },
+    broadcastCommentary(matchId, commentary) {
+      const targetFunction = expressApp.locals.broadcastCommentary;
+      if (!targetFunction) {
+        // websocket not initialized yet
+        return;
+      }
+      targetFunction(matchId, commentary);
+    },
   };
 }
 
@@ -78,6 +87,8 @@ export function createApp(): App {
 
   registerMiddlewares(app);
   initializeMatchesModule(app);
+  initializeCommentaryModule(app);
+  // the following should registered last
   registerUtilRoutes(app);
   registerDefaultErrHandler(app);
 

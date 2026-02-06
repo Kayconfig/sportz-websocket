@@ -1,4 +1,5 @@
 import {
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -14,35 +15,52 @@ export const matchStatusEnum = pgEnum('match_status', [
   'finished',
 ]);
 
-export const matches = pgTable('matches', {
-  id: serial('id').primaryKey(),
-  sport: text('sport').notNull(),
-  homeTeam: text('home_team').notNull(),
-  awayTeam: text('away_team').notNull(),
-  status: matchStatusEnum('status').default('scheduled'),
-  startTime: timestamp('start_time').notNull(),
-  endTime: timestamp('endtime').notNull(),
-  homeScore: integer('home_score').default(0),
-  awayScore: integer('away_score').default(0),
-  createdAt: timestamp('created_at').defaultNow(),
-});
+export const matches = pgTable(
+  'matches',
+  {
+    id: serial('id').primaryKey(),
+    sport: text('sport').notNull(),
+    homeTeam: text('home_team').notNull(),
+    awayTeam: text('away_team').notNull(),
+    status: matchStatusEnum('status').default('scheduled'),
+    startTime: timestamp('start_time').notNull(),
+    endTime: timestamp('endtime').notNull(),
+    homeScore: integer('home_score').default(0),
+    awayScore: integer('away_score').default(0),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => {
+    return {
+      createdAtIndex: index('match_created_at_idx').on(table.createdAt),
+    };
+  }
+);
 
-export const commentary = pgTable('commentary', {
-  id: serial('id').primaryKey(),
-  matchId: integer('match_id')
-    .notNull()
-    .references(() => matches.id),
-  minute: integer('minute').notNull(),
-  sequence: integer('sequence').notNull(),
-  period: text('period').notNull(),
-  eventType: text('event_type').notNull(),
-  actor: text('actor').notNull(),
-  team: text('team').notNull(),
-  message: text('message').notNull(),
-  metadata: jsonb('metadata'),
-  tags: text('tags').array(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+export const commentary = pgTable(
+  'commentary',
+  {
+    id: serial('id').primaryKey(),
+    matchId: integer('match_id')
+      .notNull()
+      .references(() => matches.id),
+    minute: integer('minute').notNull(),
+    sequence: integer('sequence').notNull(),
+    period: text('period').notNull(),
+    eventType: text('event_type').notNull(),
+    actor: text('actor').notNull(),
+    team: text('team').notNull(),
+    message: text('message').notNull(),
+    metadata: jsonb('metadata'),
+    tags: text('tags').array(),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (table) => {
+    return {
+      createdAtIndex: index('commentary_created_at_idx').on(table.createdAt),
+      matchIdIndex: index('commentary_match_id_idx').on(table.matchId),
+    };
+  }
+);
 
 export type Match = typeof matches.$inferSelect;
 export type NewMatch = typeof matches.$inferInsert;

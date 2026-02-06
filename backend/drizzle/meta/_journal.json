@@ -8,6 +8,13 @@
       "when": 1770137736737,
       "tag": "0000_goofy_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770361728162,
+      "tag": "0001_quick_iron_patriot",
+      "breakpoints": true
     }
   ]
 }
